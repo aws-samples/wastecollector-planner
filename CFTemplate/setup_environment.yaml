@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Parameters:
+    SagemakerRoleName:
+        Type: String
+        Description: Sagemake Execution Role Name
+Resources:
+
+    RouteCalculator:
+        Type: AWS::Location::RouteCalculator
+        Properties: 
+          CalculatorName:  !Join [ "." , [ "route.calculator", !Ref AWS::StackName ]]
+          DataSource: 'Here'
+          Description: 'Ednpoint for route calculation'
+          
+
+    RouteMap:
+        Type: AWS::Location::Map
+        Properties: 
+          Configuration:
+              Style: 'VectorHereExplore'
+          Description: String
+          MapName: !Join [ ".", [ "route.map", !Ref AWS::StackName ]]
+
+
+    LocaitionServiceAccessPolicy:
+        Type: "AWS::IAM::ManagedPolicy"
+        Properties:
+            ManagedPolicyName: !Join [ ".", [ "wastemap-Policy", !Ref AWS::StackName ]]
+            PolicyDocument: !Sub 
+              - |
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "geo:GetMapStyleDescriptor",
+                                "geo:GetMapGlyphs",
+                                "geo:GetMapSprites",
+                                "geo:GetMapTile"
+                            ],
+                            "Resource": "${RouteMapARN}"
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "geo:CalculateRouteMatrix",
+                                "geo:CalculateRoute"
+                            ],
+                            "Resource": "${RouteCalculatorARN}"
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "cloudformation:DescribeStacks"
+                            ],
+                            "Resource": "*"
+                        }                         
+                    ]
+                }
+              - RouteMapARN : !GetAtt RouteMap.Arn
+                RouteCalculatorARN : !GetAtt RouteCalculator.Arn
+            Roles:
+              - Ref: SagemakerRoleName
+              
+    SagemakerLocaitionServiceAccessPolicyAssumeRole:
+        Type: "AWS::IAM::Policy"
+        Properties:
+            PolicyName: !Join [ ".", [ "inline-wastemap-Policy", !Ref AWS::StackName ]]
+            PolicyDocument: !Sub 
+              - |
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "sts:AssumeRole"
+                            ],
+                            "Resource": "arn:aws:iam::${AWS::AccountId}:role/service-role/${SagemakerRoleName}"
+                        }                           
+                
+                    ]
+                }
+              - SagemakerRoleName :  !Ref SagemakerRoleName          
+            Roles:
+              - Ref: SagemakerRoleName            
+Outputs:
+    CalculatorName: 
+        Description: "Route CalculatorName"
+        Value: !Ref RouteCalculator
+    MapName: 
+        Description: "Map Name"
+        Value: !Ref RouteMap
+    PolicyName:
+        Description: "Location Service Policy Name"
+        Value: !Ref LocaitionServiceAccessPolicy
+        Export : 
+            Name : !Fn::Sub [ "LocaitionServiceAccessPolicy-${AWS::StackName} ]

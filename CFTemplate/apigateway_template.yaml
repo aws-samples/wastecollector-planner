@@ -1,0 +1,393 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Parameters:
+  SagemakerEndpoint:
+    Type: String
+  LambdaLayerNodeSDKARN:
+    Type: String
+  LocationPolicyARN:
+    Type: String
+  CalculatorName:
+    Type: String    
+Resources:
+  ApiGatewayRestApi:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: !Join ["-", ["location-service-demo", !Ref AWS::StackName]]
+      ApiKeySourceType: "HEADER"
+      EndpointConfiguration:
+        Types:
+          - "REGIONAL"
+
+  ApiGatewayResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "predict-path"
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+
+  ApiGatewayMethodOPTIONS:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResource
+      HttpMethod: "OPTIONS"
+      AuthorizationType: "NONE"
+      ApiKeyRequired: false
+      RequestParameters: {}
+      MethodResponses:
+        - ResponseModels:
+            "application/json": "Empty"
+          ResponseParameters:
+            "method.response.header.Access-Control-Allow-Headers": false
+            "method.response.header.Access-Control-Allow-Methods": false
+            "method.response.header.Access-Control-Allow-Origin": false
+          StatusCode: "200"
+      Integration:
+        CacheNamespace: !Ref ApiGatewayResource
+        IntegrationResponses:
+          - ResponseParameters:
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,POST'"
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+            ResponseTemplates: {}
+            StatusCode: "200"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates:
+          "application/json": '{"statusCode": 200}'
+        TimeoutInMillis: 29000
+        Type: "MOCK"
+
+  ApiGatewayMethodPOST:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResource
+      HttpMethod: "POST"
+      AuthorizationType: "NONE"
+      ApiKeyRequired: false
+      RequestParameters: {}
+      MethodResponses:
+        - ResponseModels:
+            "application/json": "Empty"
+          ResponseParameters:
+            "method.response.header.Access-Control-Allow-Origin": false
+          StatusCode: "200"
+      Integration:
+        CacheNamespace: !Ref ApiGatewayResource
+        Credentials: !GetAtt APIGWCallLambdaRole.Arn
+        IntegrationHttpMethod: "POST"
+        IntegrationResponses:
+          - ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+            ResponseTemplates: {}
+            StatusCode: "200"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        TimeoutInMillis: 29000
+        Type: "AWS"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunction}/invocations"
+
+  ApiGwDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn: ApiGatewayMethodPOST
+    Properties:
+      Description: "Dev Endpoint to call Sagemaker Inference"
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: "dev"
+
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Description: ""
+      FunctionName: !Join ["-", ["location-demo", !Ref AWS::StackName]]
+      Handler: "index.handler"
+      Architectures:
+        - "x86_64"
+      Code:
+        ZipFile: |
+          const { LocationClient, CalculateRouteMatrixCommand, CalculateRouteCommand } = require("@aws-sdk/client-location");
+          const { SageMakerRuntimeClient, InvokeEndpointCommand } = require("@aws-sdk/client-sagemaker-runtime");
+          exports.handler = async (event) => {
+
+              let smEndpoint = process.env.SAGEMAKER_ENDPOINT;
+              let region = process.env.REGION;
+
+
+              const matrixParams = event;
+              const routes = [];
+              const depositCoordinates = matrixParams.DeparturePositions[0];
+              matrixParams.CalculatorName=process.env.CALCULATOR_NAME;
+              const calculateMatrix = async  () => {
+                  try {
+                  const client = new LocationClient({region: region});
+                  const command = new CalculateRouteMatrixCommand(matrixParams);
+                  const routeMatrix = await client.send(command);
+
+                  const matrix = [];
+                  routeMatrix.RouteMatrix.forEach((element) =>
+                      matrix.push(element.map((x) => x.Distance))
+                  );
+                  return matrix;
+                  }
+                  catch (err){
+                      console.error(err);
+                  }
+              };
+              const doRequestToSageMaker = async (payload) => {
+                  try {
+                      const input = {
+                          Body: JSON.stringify(payload),
+                          ContentType: "application/json",
+                          Accept: "application/json",
+                          EndpointName: smEndpoint
+                      }
+                      const client = new SageMakerRuntimeClient({ region: region });
+                      const command = new InvokeEndpointCommand(input);
+                      const data = await client.send(command);
+                      var optimal = new TextDecoder().decode(data.Body);
+                      return optimal;
+                  } catch (err) {
+                      console.error(err);
+                  } 
+              };
+              const fetchRoute =  async (waypoints)  => {
+                  try {
+                      delete matrixParams.DeparturePositions;
+                      delete matrixParams.DestinationPositions;
+
+                      matrixParams.DeparturePosition = depositCoordinates;
+                      matrixParams.DestinationPosition = depositCoordinates;
+                      matrixParams.WaypointPositions = waypoints;
+
+                      const client = new LocationClient({region: region});
+                      const command = new CalculateRouteCommand(matrixParams);
+                      const leg = await client.send(command);
+
+                      return leg;
+                  }
+                  catch (err) {
+                      console.error(err);
+                  }
+
+              };
+
+              const distanceMatrix = await calculateMatrix();
+              const plannerPayload = {
+                  distance_matrix: distanceMatrix,
+                  num_vehicles: 2,
+                  depot: 0,
+                  vehicle_capacities: [10, 10],
+              };
+              // paths return the indexes of the distanceMatrix on the optimal route
+              const p = await doRequestToSageMaker(plannerPayload);
+              const paths = JSON.parse(p);
+              const waypoints = [];
+              const w = matrixParams.DeparturePositions;
+
+              for (let i = 0; i < paths.length; i++) {
+                  // now intersect paths with the indexes to get the coordinates of the waypoints
+                  waypoints[i] = paths[i].map((j) => w[j]);
+                  if (waypoints[i].length > 0) {
+                      const route = await fetchRoute(waypoints[i]);
+                      routes.push(route.Legs);
+                  }
+              }
+              return JSON.stringify(routes);
+          };
+      MemorySize: 128
+      Role: !GetAtt LambdaCallSagemakerRole.Arn
+      Runtime: "nodejs16.x"
+      Timeout: 60
+      Layers:
+        - !Ref LambdaLayerNodeSDKARN
+      Environment:
+        Variables:
+          SAGEMAKER_ENDPOINT: !Ref SagemakerEndpoint
+          REGION: !Ref AWS::Region
+          CALCULATOR_NAME: !Ref CalculatorName
+          
+      TracingConfig:
+        Mode: "PassThrough"
+      EphemeralStorage:
+        Size: 512
+
+  APIGWCallLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Join ["-", ["APIGWCallLambda", !Ref AWS::StackName]]
+      AssumeRolePolicyDocument: '{"Version":"2012-10-17","Statement":[{"Sid":"","Effect":"Allow","Principal":{"Service":"apigateway.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+      Description: "Allows API Gateway to push logs to CloudWatch Logs and call Lambda"
+
+  IAMPolicyAPIGW:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument: !Sub |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "lambda:InvokeFunction",
+                    "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunction}"
+                }
+            ]
+        }
+      Roles:
+        - !Ref APIGWCallLambdaRole
+      PolicyName: "call-lambda"
+
+  LambdaCallSagemakerRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Join ["-", ["LamdaCallSagemaker", !Ref AWS::StackName]]
+      AssumeRolePolicyDocument: '{"Version":"2012-10-17","Statement":[{"Sid":"","Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+      ManagedPolicyArns:
+        - !Ref LocationPolicyARN
+      MaxSessionDuration: 3600
+      Description: "Allows Lambda to call Sagemaker Inference Endpoint"
+
+  IAMPolicyLambda:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument: !Sub |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "logs:CreateLogGroup",
+                    "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                         "logs:CreateLogStream",
+                         "logs:PutLogEvents"
+                    ],
+                    "Resource": [
+                         "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaFunction}:*"
+                    ]
+                },                    
+                {
+                    "Effect": "Allow",
+                    "Action": "sagemaker:InvokeEndpoint",
+                    "Resource": "arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:endpoint/${SagemakerEndpoint}*"
+                }
+            ]
+        }
+      Roles:
+        - !Ref LambdaCallSagemakerRole
+      PolicyName: "call-sagemaker"
+
+  UserPool:
+    Type: 'AWS::Cognito::UserPool'
+    Properties:
+      UserPoolName: !Sub  "wasterouting-${AWS::StackName}"
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          RequireUppercase: false
+      Schema:
+        - Mutable: true
+          Name: email
+          Required: true
+      UsernameConfiguration:
+        CaseSensitive: false
+  UserPoolClientWeb:
+    Type: 'AWS::Cognito::UserPoolClient'
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: wasterouting_client_app
+      RefreshTokenValidity: 15
+    DependsOn:
+      - UserPool
+  IdentityPool:
+    Type: 'AWS::Cognito::IdentityPool'
+    Properties:
+      IdentityPoolName: !Sub  "wasterouting-${AWS::StackName}"
+      AllowUnauthenticatedIdentities: True
+      CognitoIdentityProviders:
+        - ClientId: !Ref UserPoolClientWeb
+          ProviderName: !Sub 
+            - 'cognito-idp.${region}.amazonaws.com/${client}'
+            - region: !Ref 'AWS::Region'
+              client: !Ref UserPool
+  IdentityPoolRoleMap:
+    Type: 'AWS::Cognito::IdentityPoolRoleAttachment'
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        unauthenticated: !GetAtt CognitoRole.Arn
+        authenticated:  !GetAtt CognitoRole.Arn
+    DependsOn:
+      - IdentityPool
+
+  CognitoRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Join ["-", ["wasterouting-cognito-", !Ref AWS::StackName]]
+      AssumeRolePolicyDocument: !Sub |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Federated": "cognito-identity.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRoleWithWebIdentity",
+                    "Condition": {
+                        "StringEquals": {
+                            "cognito-identity.amazonaws.com:aud": "${IdentityPool}"
+                        }
+                    }
+                }
+            ]
+        }      
+      MaxSessionDuration: 3600
+      Policies: 
+      - PolicyName: execute-api
+        PolicyDocument: 
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'execute-api:*'
+                Resource: '*'
+      ManagedPolicyArns:
+        - !Ref LocationPolicyARN
+      Description: "Allows Cognito to call API GW and Location Services"
+
+Outputs:
+  IdentityPoolId:
+    Description: Id for the identity pool
+    Value: !Ref IdentityPool
+  UserPoolId:
+    Description: Id for the user pool
+    Value: !Ref UserPool
+  AppClientIDWeb:
+    Description: The user pool app client id for web
+    Value: !Ref UserPoolClientWeb
+  APIUri:
+    Description: "API URL"
+    Value:
+      !Join [
+        "",
+        [
+          "https://",
+          !Ref ApiGatewayRestApi,
+          ".execute-api.",
+          !Ref AWS::Region,
+          ".amazonaws.com/dev",
+        ],
+      ]
