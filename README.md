@@ -14,7 +14,7 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 ## License
 
-This library is licensed under the MIT-0 License. See the LICENSE file, it also includes third party libraries see THIRD-PARTY-LICENSES
+This library is licensed under the MIT-0 License. See the LICENSE file.
 
 
 ## What we are going to build.
