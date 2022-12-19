@@ -81,7 +81,7 @@ The cloudformation template can be downloaded from [here](https://github.com/aws
 
 The next step is to open a Studio and leverage the “Git Clone” feature to Clone the repository:  https://github.com/aws-samples/wastecollector-planner.git
 
-The notebook used for experimenting with Amazon Location services is: (Using Sagemaker-OR-Tools.ipynb)[https://github.com/aws-samples/wastecollector-planner/blob/main/Sagemaker/Using%20Sagemaker-OR-Tools.ipynb]. This notebook includes all the steps described hereafter.  
+The notebook used for experimenting with Amazon Location services is: [Using Sagemaker-OR-Tools.ipynb](https://github.com/aws-samples/wastecollector-planner/blob/main/Sagemaker/Using%20Sagemaker-OR-Tools.ipynb). This notebook includes all the steps described hereafter.  
 
 After installing required libraries on the Notebook instance, we are going to deploy a Sagemaker inference endpoint to invoke OR-Tools both from inside and outside the notebook. To achieve this result we will go through building and testing a estimator and deploying it to an interface endpoint.  
 
@@ -223,7 +223,7 @@ Sagemaker, the role is:
 
 A role must be in place for Lambda to call Amazon Location services and Sagemaker.
 The role is created by the cloudformation template (apigateway_lambda_template.yaml) based on the policy from the first one (setup_environment.yaml).
-So, to deploy API Gateway, Lambda function and related roles you can use the (apigateway_lambda_template.yaml)[https://github.com/aws-samples/wastecollector-planner/blob/main/CFTemplate/apigateway_template.yaml] cloudformation template.
+So, to deploy API Gateway, Lambda function and related roles you can use the [apigateway_lambda_template.yaml](https://github.com/aws-samples/wastecollector-planner/blob/main/CFTemplate/apigateway_template.yaml) cloudformation template.
 
 You have to provide in input:
 
@@ -259,8 +259,7 @@ services are created using the CloudFormation templates.
 
 When using the Amplify CLI, the **aws-exports.js** file gets created and updated automatically for you based on the resources you have added and configured. If you are not using the Amplify CLI as in our case, you need to create the file and fill in with data coming from the output of the Cloudformation templates. 
 
-In the repository, you just need to open the file (aws-exports.js.template)[https://github.com/aws-samples/wastecollector-planner/blob/main/src/aws-exports.js.template], insert with the correct information and
-save it as **aws-exports.js**
+In the repository, you just need to open the file [aws-exports.js.template](https://github.com/aws-samples/wastecollector-planner/blob/main/src/aws-exports.js.template), insert with the correct information and save it as **aws-exports.js**
 
 You are now ready to run the web app with:
 
