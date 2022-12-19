@@ -77,11 +77,11 @@ The next step is to create the following resources:
 To achieve this result, we will run a cloudformation template passing in input the name of the template and the name of the Sagemaker execution role (only the name not the full ARN) that can be found on the bottom left of the screen as shown hereafter.  
 ![image-3.png](./images/image-3.png)  
 
-The cloudformation template can be downloaded from [here](https://gitlab.aws.dev/lfenu/wasterouting/-/blob/master/Sagemaker/API-CFTemplate/setup_environment.yaml) (To be replaced with official https://github.com/aws-samples/xxx  public repo)  
+The cloudformation template can be downloaded from [here](https://github.com/aws-samples/wastecollector-planner/blob/main/CFTemplate/setup_environment.yaml)   
 
-The next step is to open a Studio and leverage the “Git Clone” feature to Clone the repository:  https://gitlab.aws.dev/lfenu/wasterouting.git (To be replaced with official https://github.com/aws-samples/xxx  public repo)  
+The next step is to open a Studio and leverage the “Git Clone” feature to Clone the repository:  https://github.com/aws-samples/wastecollector-planner.git
 
-The notebook used for experimenting with Amazon Location services is: wasterouting/Sagemaker/Using Sagemaker-OR-Tools.ipynb. This notebook includes all the steps described hereafter.  
+The notebook used for experimenting with Amazon Location services is: (Using Sagemaker-OR-Tools.ipynb)[https://github.com/aws-samples/wastecollector-planner/blob/main/Sagemaker/Using%20Sagemaker-OR-Tools.ipynb]. This notebook includes all the steps described hereafter.  
 
 After installing required libraries on the Notebook instance, we are going to deploy a Sagemaker inference endpoint to invoke OR-Tools both from inside and outside the notebook. To achieve this result we will go through building and testing a estimator and deploying it to an interface endpoint.  
 
@@ -222,8 +222,8 @@ A role must be in place for Lambda to call Amazon Location services and
 Sagemaker, the role is:
 
 A role must be in place for Lambda to call Amazon Location services and Sagemaker.
-The role is created by the first cloudformation template (apigateway_lambda_template.yaml) based on the policy from the first one (setup_environment.yaml).
-So, to deploy API Gateway, Lambda function and related roles you can use the apigateway_lambda_template.yaml cloudformation template.
+The role is created by the cloudformation template (apigateway_lambda_template.yaml) based on the policy from the first one (setup_environment.yaml).
+So, to deploy API Gateway, Lambda function and related roles you can use the (apigateway_lambda_template.yaml)[https://github.com/aws-samples/wastecollector-planner/blob/main/CFTemplate/apigateway_template.yaml] cloudformation template.
 
 You have to provide in input:
 
@@ -239,8 +239,7 @@ You have to provide in input:
     used by the lambda function (you can get it from the output of the first cloudformation
     template we used to set-up the environment).
 
-Once the cloudformation template execution completes we can get the
-following values from its output:
+Once the cloudformation template execution completes we can get the following values from its output:
 
 -   The url of the REST api we have just built
 
@@ -260,7 +259,7 @@ services are created using the CloudFormation templates.
 
 When using the Amplify CLI, the **aws-exports.js** file gets created and updated automatically for you based on the resources you have added and configured. If you are not using the Amplify CLI as in our case, you need to create the file and fill in with data coming from the output of the Cloudformation templates. 
 
-In the repository, you just need to open the file **aws-exports.js.template**, insert with the correct information and
+In the repository, you just need to open the file (aws-exports.js.template)[https://github.com/aws-samples/wastecollector-planner/blob/main/src/aws-exports.js.template], insert with the correct information and
 save it as **aws-exports.js**
 
 You are now ready to run the web app with:
@@ -295,9 +294,7 @@ components
 <https://visgl.github.io/react-map-gl/>
 
 The client code can be downloaded from
-<https://gitlab.aws.dev/lfenu/wasterouting/-/blob/master/Sagemaker/API-CFTemplate/setup_environment.yaml>
-(*To be replaced with official <https://github.com/aws-samples/xxx>
-public repo)*
+<https://github.com/aws-samples/wastecollector-planner/tree/main/src>
 
 ## Clean up
 
