@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Quick start tutorial</title>
+    <style>
+* {{
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+    }}
+
+body {{
+  margin: 0;
+    }}
+
+
+h1 {{
+  margin: 0;
+  text-align: center;
+  font-size: 1.5rem;
+  color: #ffffff;
+    }}
+
+main {{
+  display: flex;
+  min-height: calc(100vh - 94px);
+    }}
+
+#map {{
+  flex: 1;
+    }}
+
+
+h2 {{
+  margin: 0;
+    }}
+
+pre {{
+  white-space: pre-wrap;
+  font-family: monospace;
+  color: #16191f;
+    }}
+
+footer {{
+  background: #000000;
+  padding: 1rem;
+  color: #ffffff;
+    }}          
+      </style>
+ 
+      <link href="https://unpkg.com/maplibre-gl@1.14.0/dist/maplibre-gl.css" rel="stylesheet" />
+
+  </head>
+  
+  <body>
+    <main>
+      <div id="map"></div>
+    </main>
+ 
+    <!-- JavaScript dependencies -->
+    <script src="https://unpkg.com/maplibre-gl@1.14.0/dist/maplibre-gl.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1030.0.min.js"></script>
+    <script src="https://unpkg.com/@aws-amplify/core@3.7.0/dist/aws-amplify-core.min.js"></script>
+    
+    <!-- JavaScript for the app -->
+    <script>
+        // Use Signer from @aws-amplify/core
+        const {{ Signer }} = window.aws_amplify_core;
+         // Amazon Location Service resource names:
+        const mapName = '{mapName}';
+
+        
+        const credentials = {{'accessKeyId': '{accessKeyId}',
+                              'secretAccessKey': '{secretAccessKey}',
+                              'sessionToken': '{sessionToken}'
+        }}
+        // Sign requests made by MapLibre GL JS using AWS SigV4:
+        function transformRequest(url, resourceType) {{
+          if (resourceType === "Style" && !url.includes("://")) {{
+            // Resolve to an AWS URL
+            url = `https://maps.geo.us-east-1.amazonaws.com/maps/v0/maps/${{url}}/style-descriptor`;
+          }}
+
+          if (url.includes("amazonaws.com")) {{
+            // Sign AWS requests (with the signature as part of the query string)
+            return {{
+              url: Signer.signUrl(url, {{
+                access_key: credentials.accessKeyId,
+                secret_key: credentials.secretAccessKey,
+                session_token: credentials.sessionToken,
+              }}),
+            }};
+          }}
+
+          // If not amazonaws.com, falls to here without signing
+          return {{ url }};
+        }}
+        
+        // Initialize a map
+        async function initializeMap() {{
+
+            // Initialize the map
+            const mlglMap = new maplibregl.Map({{
+                                                container: "map", // HTML element ID of map element
+                                                center: {center}, // Initial map centerpoint
+                                                zoom: {zoom}, // Initial map zoom
+                                                style: mapName,
+                                                transformRequest,
+                                               }});
+
+              // Add navigation control to the top left of the map
+              mlglMap.addControl(new maplibregl.NavigationControl(), "top-left");
+
+              return mlglMap;
+        }}
+
+        async function main() {{
+          // Initialize map and AWS SDK for Location Service:
+          const map = await initializeMap();
+          const PointOfInterest={jsonPointOfInterest}
+          const optimized_path={jsonOptimized_path}
+          const path={jsonPath}          
+           
+            map.on('load', function () {{
+
+
+                function addMarkerToMap (marker) {{
+                         var marker = new maplibregl.Marker({{
+                                                                color: "#FF0000",
+                                                                draggable: false
+                                                             }}).setLngLat([marker[0],marker[1]])
+                                                                .addTo(map);
+                }}
+
+
+                PointOfInterest.forEach (addMarkerToMap)
+
+                map.addSource('route', {{
+                    'type': 'geojson',
+                    'data': {{
+                        'type': 'Feature',
+                        'properties': {{}},
+                        'geometry': {{
+                           'type': 'LineString',
+                           'coordinates': path
+                         }}
+                    }}
+                }});
+
+                map.addLayer({{
+                    'id': 'route',
+                    'type': 'line',
+                    'source': 'route',
+                    'layout': {{
+                       'line-join': 'round',
+                       'line-cap': 'round'
+                    }},
+                    'paint': {{
+                       'line-color': '#888',
+                       'line-width': 6
+                    }}
+                 }});
+            }});
+        }};
+        
+
+        
+        main();
+    </script>
+  </body>
+</html>
