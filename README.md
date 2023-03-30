@@ -134,6 +134,21 @@ In order to set-up the container that includes our algorithm you are going to us
 
 In this example, you are going to use a [SKLearn](https://docs.aws.amazon.com/sagemaker/latest/dg/pre-built-docker-containers-scikit-learn-spark.html) container. For this specific example you do not need to use a predefined initial condition for your route optimization problem and since you do not need to run a training phase, you will build a dummy training output file, upload it to Amazon Simple Storage Service (Amazon S3) and build your model by calling SKLearnModel object. 
 
+```
+from  sagemaker.sklearn.model import SKLearnModel
+modelName=f"RouteOptimiser-{timestamp}"
+sklearn_preprocessor = SKLearnModel(
+    role=role,
+    predictor_cls  = sagemaker.predictor.Predictor,
+    sagemaker_session = sagemaker_session,
+    name=modelName,
+    model_data=f"s3://{bucket}/{prefix}/{timestamp}/model.tar.gz",
+    source_dir = 'scripts-or-tools',
+    entry_point= 'algorithm.py',
+    framework_version ='0.23-1'
+)
+```
+
 
 
 ### Deploy Sagemaker Model  
