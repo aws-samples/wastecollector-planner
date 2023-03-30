@@ -151,207 +151,232 @@ sklearn_preprocessor = SKLearnModel(
 
 
 
-### Deploy Sagemaker Model  
-Once the model is ready, we are going to deploy a Sagemaker Serverless Inference end-point providing information about the amount of memory to allocate and the maximum number of concurrent calls. We also want the endpoint to use json as input and output data format.  
-![image-5.png](./images/image-5.png)  
+### Deploy the SageMaker model  
+Once the model is ready, you will deploy a SageMaker Serverless [Inference end-point](https://aws.amazon.com/it/blogs/aws/amazon-sagemaker-serverless-inference-machine-learning-inference-without-worrying-about-servers/) providing information about the amount of memory you would allocate for it and the maximum number of concurrent calls you would be able to support. You also want the endpoint to use json as the input and the output data format.  
+```
+from sagemaker.serverless import ServerlessInferenceConfig
+from sagemaker.serializers import JSONSerializer
+from sagemaker.deserializers import JSONDeserializer
 
-### Testing our algorithm  
-The algorithm is now ready to be used by the frontend application. Let’s test it before deploying. We will instruct Sagemaker to run Amazon Location Services, which is going to generate test data to visualize the result. Sagemaker will ask Location Service to create a route calculator and a map service for us.  
-![image-6.png](./images/image-6.png)  
-We are now ready to leverage location services to obtain a Route Matrix.  
-We can specify additional constraints that the service has to take into account, i.e: the size of our truck, making sure we are not going through too small streets, the weight and other attributes.  
-Every point is going to be a starting point and an endpoint of a hop in our Route Matrix.  
+# Create an empty ServerlessInferenceConfig object to use default values
+serverless_config =  ServerlessInferenceConfig(
+          memory_size_in_mb=4096,
+          max_concurrency=10)
 
-![image-7.png](./images/image-7.png)  
+predictor=sklearn_preprocessor.deploy(
+    serverless_inference_config=serverless_config,
+    serializer=JSONSerializer(content_type='application/json'),
+    deserializer=JSONDeserializer(accept='application/json'))
+```
+ 
 
-After extracting relevant data from the response and putting them in a matrix format, we will have:  
-    array([  
-        [0, 0.812, 0.731, 0.679],  
-        [0.824, 0, 0.674, 0.622],  
-        [0.787, 0.718, 0, 0.263],  
-        [0.88, 0.963, 1.09, 0],  
-    ]);  
+### Testing your algorithm 
+
+The algorithm is now ready to be used by the frontend application. Let’s test it before deploying. You will instruct SageMaker to run Amazon Location, which is going to generate test data to visualize the result. You will use the Amazon Location Route Calculator and the Amazon Location Map service that the initial CloudFormation stack created. The next snippet of code is going to automatically retrieve this information from the stack output:
+```
+import time
+cf=boto3.client ('CloudFormation')
+stackName='provalocation'
+response = cf.describe_stacks( StackName=stackName) 
+
+while response['Stacks'][0]['StackStatus'] == 'CREATE_IN_PROGRESS':
+    time.sleep(10)
+    response = cf.describe_stacks( StackName=stackName) 
+    print (response['Stacks'][0]['StackStatus'])
+response['Stacks'][0]['StackStatus']   
+for output in response['Stacks'][0]['Outputs']:
+    if output['OutputKey']=='CalculatorName':
+        locationCalculatorName=output['OutputValue']
+    if output['OutputKey']=='MapName':
+        locationMapName=output['OutputValue']
+```
+
+You are now ready to leverage Location services to obtain a Route Matrix. You can specify additional constraints that the service has to take into account, i.e. the size of your truck, making sure you are not going through too small streets, the weight and other attributes. Every point is going to be a starting point and an endpoint of a hop in your Route Matrix.
+```
+location=boto3.client('location')
+response=location.calculate_route_matrix(
+  CalculatorName= locationCalculatorName,
+  DepartNow= True,
+  DistanceUnit= "Kilometers",
+  TravelMode= "Truck",
+  TruckModeOptions= {
+    'AvoidFerries': True,
+    'AvoidTolls': True,
+    'Dimensions': {
+      'Height': 3.5,
+      'Length': 4.95,
+      'Unit': "Meters",
+      'Width': 1.9,
+    },
+    'Weight': {
+      'Total': 4500,
+      'Unit': "Kilograms",
+    },
+   },
+  DeparturePositions=PointOfInterest,
+  DestinationPositions=PointOfInterest)
+```
+
+
+After extracting relevant data from the response and putting them in a matrix format, the result will be as follows:
+```
+array([
+  [0, 0.812, 0.731, 0.679],
+  [0.824, 0, 0.674, 0.622],
+  [0.787, 0.718, 0, 0.263],
+  [0.88, 0.963, 1.09, 0],
+]);
+```
 
 
 The matrix is not symmetric and this is due to the one-way signs that require different routes: to go from 0 to 3 the distance is 0.67 KM while to go from 3 to 0 it is 0.88 KM.
-We can now send the matrix to the Optimization Algorithm to get the best routes. 
+You can now send the matrix to the Optimization Algorithm to get the best routes. 
+```
+data = {}
+data['distance_matrix'] = DistanceMatrix.tolist()
+data['num_vehicles'] = 1
+data['depot'] = 0
+data['vehicle_capacities']=[20]
+```
 
-![image-8.png](./images/image-8.png)
-
-We will get the following output: [[0, 3, 2, 1, 0]]. 
-This is an array of a single item. Since we asked to optimize routes for a single track, the meaning of the output is that we start from point 0 through points 3,2,1 and then back to 0. 
+You will get the following output: [[0, 3, 2, 1, 0]].  
+This is an array of a single item. You requested that routes be optimized for a single track, and the result of the output is that you start from point 0 through points 3,2,1 and then back to 0.  
 The number that represents each point, can be transformed back into GPS coordinates and displayed on a map.
 
-![image-9.png](./images/image-9.png)  
+
+
+![Figure 10 – Amazon Location Service Map showing routing optimization output](./images/image-9.png)  
+**Figure 10 – Amazon Location Service Map showing routing optimization output**  
 
 ### Using Sagemaker Endpoint from external services  
-You now need to implement a REST API that helps to expose a service that
-recieves as input the list of locations of garbage bins and returns the
-information needed to plot the optimized route on a map.
+You now need to implement a REST API that helps to expose a service that receives as input the list of locations of garbage bins, and returns the information needed to plot the optimized route on a map. 
 
-The implementation of this service has been done using the following
-architecture:
+The implementation of this service has been done using the following architecture:
 
-![](./images/image11.png)
+![Figure 11 – REST API architecture](./images/image11.png)  
+**Figure 11 – REST API architecture**  
 
-The Lambda function performs all the required preprocessing steps like interacting with Amazon Location services to compute the Route Matrix and than invokes Sagemaker endpoint to perform the route optimiziation. As Sagemaker returns the answer, the Lambda function computes the route geometry and sends them back to API Gateway that returns the answer to the caller.
 
-We are going to use nodeJS to implement our lambda function and we need to include the latest version of the AWS Javascript SDK. Since this library can be reused by multiple lambda functions we decided to build a custom lambda layer to host that.
-
-You can integrate the lamba layer following the directions described here:
-
-https://aws.amazon.com/premiumsupport/knowledge-center/lambda-layer-aws-sdk-latest-version/
-
-You have to install the following packages as layer:
-
-    npm install @aws-sdk/client-location
-    npm install @aws-sdk/client-sagemaker-runtime
+The Lambda function performs all the required preprocessing steps like interacting with Amazon Location to compute the Route Matrix and then invokes a SageMaker endpoint to perform the route optimization. As SageMaker returns the answer, the Lambda function computes the route geometry and forwards them to the API Gateway that returns the response to the caller.
 
 This is what the Lambda function is doing in detail:
 
-1.  Calculate the route matrix starting from parameters passed by the web app
+1.  Calculate the route matrix starting from parameters passed by the web application
 
-The Lambda function make use of AWS SDK for Javascript V3 and calculate the route matrix starting from parameters passed by the browser and stored into matrixParams variable.
+The Lambda function make use of AWS SDK for Javascript V3 and calculate the route matrix starting from parameters passed by the browser and stored into **matrixParams** variable.
+```
+ try {
+      const client = new LocationClient({region: region});
+      const command = new CalculateRouteMatrixCommand(matrixParams);
+      const routeMatrix = await client.send(command);
 
-    try {
-        const client = new LocationClient({region: region});
-        const command = new CalculateRouteMatrixCommand(matrixParams);
-        const routeMatrix = await client.send(command);
-    }
-    catch {...}
+      …
+     }
+catch (err){
+      console.error(err);
+     }
+```
+**matrixParams** is a JSON object sent by the web application with all the relevant information to calculate the route matrix.  
+```
+const options = {
+  DepartNow: true,
+  IncludeLegGeometry: true,
+  DistanceUnit: "Kilometers",
+  TravelMode: "Truck",
+  TruckModeOptions: {
+    AvoidFerries: true,
+    AvoidTolls: true,
+    Dimensions: {
+      Height: 2.5,
+      Length: 4.95,
+      Unit: "Meters",
+      Width: 1.8,
+    },
+    Weight: {
+      Total: 1000,
+      Unit: "Kilograms",
+    },
+  },
+  DeparturePositions: [],
+  DestinationPositions: [],
+};
+```
+**DeparturePositions** is an array of longitude, latitude of the truck deposit and   
+**DestinationPositions** is a matrix with the coordinates of all the bins.
 
-matrixParams is a JSON sent by the web application with all the relevant information to calculate the route matrix.
+[Here](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/clients/client-location/interfaces/calculateroutematrixcommandinput.html#departurepositions) the list of all available options such as route preferences, time of departures, truck dimensions.
 
-    const options = {
-        DepartNow: true,
-        IncludeLegGeometry: true,
-        DistanceUnit: "Kilometers",
-        TravelMode: "Truck",
-        TruckModeOptions: {
-            AvoidFerries: true,
-            AvoidTolls: true,
-            Dimensions: {
-            Height: 2.5,
-            Length: 4.95,
-            Unit: "Meters",
-            Width: 1.8,
-            },
-            Weight: {
-            Total: 1000,
-            Unit: "Kilograms",
-            },
-        },
-        DeparturePositions: [[longitude, latitude]],
-        DestinationPositions: [[longitude, latitude]],
-    };
+2.  Calculate the route matrix starting from parameters passed by the web appplication
+Invokes the SageMaker endpoint by passing to it the Route Matrix (from point 1) and receiving the optimal routes:  
+```
+const client = new SageMakerRuntimeClient({ region: region });
+const command = new InvokeEndpointCommand(input);
+const data = await client.send(command);
+var optimal = new TextDecoder().decode(data.Body);
+```
 
-Where DeparturePositions is an array of longitude, latitude of the truck deposit and DestinationPositions is a matrix with the coordinates of all the bins.
+3.	With the optimal routes (from point 2), the Lambda function calls Amazon Location to get the route geometry and pass it back to the web application.
 
-You can find detailed info about all the options at the following link:
+Here is the code that demonstrates the call to the CalculateRouteCommand and receives the geometry of the single routes:
+```
+const client = new LocationClient({region: region});
+const command = new CalculateRouteCommand(matrixParams);
+const leg = await client.send(command);
+```
+An IAM role must be in place for the Lambda function to call Amazon Location and SageMaker.  
+To deploy the API Gateway, the Lambda function and the related roles, use the [apigateway_template.yaml](https://github.com/aws-samples/wastecollector-planner/blob/main/CFTemplate/apigateway_template.yaml) CloudFormation template.  
 
-<https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/clients/client-location/interfaces/calculateroutematrixcommandinput.html#departurepositions>
+To deploy this second CloudFormation template follow the same steps described above for creating setup_environment.yaml. You need to provide the following in inputs: 
+* 	the name of the second template: **LocationServiceDemoBackend**.  
+*	 the name of the SageMaker Endpoint: you can get it from the Jupyter notebook. There is cell in the notebook that prints the name of the endpoint by executing predictor.endpoint_name.  
+* 	the name of the IAM policy that you will used to access Location Services: you can get it from the output of setup_environment.yaml CloudFormation template we used to set-up the environment.  
+* 	the name of the Location Service Calculator instance that will be used by the Lambda function: you can get it from the output of setup_environment.yaml CloudFormation template we used to set-up the environment.  
+  
+Once the CloudFormation template deployment is complete you can get the following values from its output. These values will be used in the web application as described in the next paragraph.  
 
-2.  Calculate the route matrix starting from parameters passed by the web app
+* 	The url of the REST api  
+* 	The Amazon Cognito Identity Pool ID, UserPoolID and AppClientIDWeb that are used by the web appplication
 
-Call the Sagemaker endpoint passing to it the route matrix (from point 1) and getting back the optimal routes:
-
-    try {
-        const client = new SageMakerRuntimeClient({ region: region });
-        const command = new InvokeEndpointCommand(input);
-        const data = await client.send(command);
-        var optimal = new TextDecoder().decode(data.Body);
-    }
-    catch {...}
-
-3.  With the optimal routes (from point 2), Lambda calls Location services to get the route geometry and pass it back to the web app.
-
-Call the CalculateRouteCommand and get back the geometry of the single routes:
-
-    try {
-        const client = new LocationClient({region: region});
-        const command = new CalculateRouteCommand(matrixParams);
-        const leg = await client.send(command);
-    }
-    catch {...}
-
-
-A role must be in place for Lambda to call Amazon Location services and
-Sagemaker, the role is:
-
-A role must be in place for Lambda to call Amazon Location services and Sagemaker.
-The role is created by the cloudformation template (apigateway_lambda_template.yaml) based on the policy from the first one (setup_environment.yaml).
-So, to deploy API Gateway, Lambda function and related roles you can use the [apigateway_lambda_template.yaml](https://github.com/aws-samples/wastecollector-planner/blob/main/CFTemplate/apigateway_template.yaml) cloudformation template.
-
-You have to provide in input:
-
--   the name of Sagemaker Endpoint (we can get it from the Jupyter notebook)
-
--   the ARN of the Lambda Layer you have already created
-
--   the name of the policy that shall be used to access Location
-    Services (you can get it from the output of the first cloudformation
-    template we used to set-up the environment)
-
--   the name of the Location Service Calculator instace that shall be
-    used by the lambda function (you can get it from the output of the first cloudformation
-    template we used to set-up the environment).
-
-Once the cloudformation template execution completes we can get the following values from its output:
-
--   The url of the REST api we have just built
-
--   The Cognito Identity Pool ID, UserPoolID and AppClientIDWeb that are used by the web app 
 
 ## Building the Web App  
-In this section you will build the web app that makes use of the
-optimization algorithm exposed by Sagemaker inference endpoint as
-described above.
+In this section you will build the web application that uses optimization algorithm exposed by SageMaker inference endpoint as described above. The web application uses React and make use of the Amplify Javascript Library and Amazon Location, to display the map on the web page.  
 
-The web app will utilize React and make use of the Amplify Javascript
-Library and Amazon Location Services, to display the map on the web
-page.
+Amplify provides several products to build full stack apps:  
 
-You will not use the Amplify CLI in this project because all the backend
-services are created using the CloudFormation templates.
+* 	[Amplify CLI](https://docs.amplify.aws/cli/) – A simple command line interface to setup the needed services.  
+* 	[Amplify Libraries](https://docs.amplify.aws/lib/q/platform/js/) - Use case-centric client libraries to integrate the front-end code with the backend.  
+* 	[Amplify UI Components](https://ui.docs.amplify.aws/) - UI libraries for React, React Native, Angular, Vue and Flutter.  
+  
+In this example you have already created all the required services with the CloudFormation templates so you will not use the Amplify CLI but only Amplify libraries for Javascript.  
 
-When using the Amplify CLI, the **aws-exports.js** file gets created and updated automatically for you based on the resources you have added and configured. If you are not using the Amplify CLI as in our case, you need to create the file and fill in with data coming from the output of the Cloudformation templates. 
+The client code can be downloaded from https://github.com/aws-samples/wastecollector-planner  
 
-In the repository, you just need to open the file [aws-exports.js.template](https://github.com/aws-samples/wastecollector-planner/blob/main/src/aws-exports.js.template), insert with the correct information and save it as **aws-exports.js**
+In the repository, you will find **aws-exports.js.template**. You need to modify this file with the information collected from the output of the CloudFormation stacks, in order to provide the correct information about endpoint of each service and saved as **aws-exports.js**.  
+
+This is the list of information required:  
+*  **aws_project_region** and **aws_cognito_region**: to be filled in with the region in which you run the CloudFormation template (i.e. us-east-1)
+* 	**aws_cognito_identity_pool_id**, **aws_user_pools_id**, **aws_user_pools_web_client_id**: you can get this value from the output of apigateway_template.yaml
+* 	In the section **geo**:
+ *	 **region**: same region as above  
+ * 	**default**: update this with the name of Location Map services listed in the output of setup_environment.yaml CloudFormation template  
+*	 In the section **API**:  
+ * 	endpoint: update this with API gatweway url listed in the output of apigateway_ template.yaml  
 
 You are now ready to run the web app with:
+```
+npm install
+npm run build
+npm run start
+```
 
-    npm install
-    npm run build
-    nom run start
+When done, point your browser to:  
+```
+http://localhost:8080  
+```
 
-When done, point your browser to
-
-    http://localhost:8080/
-
-And have fun!
-
-### CODE Walkthrough
-
-The React application make use of:
-
-**Amplify Javascript Library** - open-source client libraries that
-provide use-case centric, opinionated, declarative, and easy-to-use
-interfaces enabling developers to easily interact with their backends.
-
-<https://docs.amplify.aws/lib/q/platform/js/>
-
-**Amplify UI -** a collection of accessible, themeable, performant React
-components
-
-<https://ui.docs.amplify.aws/>
-
-**react-map-gl** -- A react wrapper for Mapbox GL JS Map
-
-<https://visgl.github.io/react-map-gl/>
-
-The client code can be downloaded from
-<https://github.com/aws-samples/wastecollector-planner/tree/main/src>
+And have fun!  
 
 ## Clean up
 
-To clean up just follow the instruction described at the end of the Sagemaker notebook and the delete the two cloudformation templates.
+To clean up all the resources you have created in this blog post, follow the instructions described at the end of the SageMaker notebook, then delete the two CloudFormation templates.  
+
