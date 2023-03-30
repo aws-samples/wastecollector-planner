@@ -354,13 +354,13 @@ The client code can be downloaded from https://github.com/aws-samples/wastecolle
 In the repository, you will find **aws-exports.js.template**. You need to modify this file with the information collected from the output of the CloudFormation stacks, in order to provide the correct information about endpoint of each service and saved as **aws-exports.js**.  
 
 This is the list of information required:  
-*  **aws_project_region** and **aws_cognito_region**: to be filled in with the region in which you run the CloudFormation template (i.e. us-east-1)
-* 	**aws_cognito_identity_pool_id**, **aws_user_pools_id**, **aws_user_pools_web_client_id**: you can get this value from the output of apigateway_template.yaml
-* 	In the section **geo**:
- *	 **region**: same region as above  
- * 	**default**: update this with the name of Location Map services listed in the output of setup_environment.yaml CloudFormation template  
-*	 In the section **API**:  
- * 	endpoint: update this with API gatweway url listed in the output of apigateway_ template.yaml  
+  *  **aws_project_region** and **aws_cognito_region**: to be filled in with the region in which you run the CloudFormation template (i.e. us-east-1)
+  * 	**aws_cognito_identity_pool_id**, **aws_user_pools_id**, **aws_user_pools_web_client_id**: you can get this value from the output of apigateway_template.yaml
+  * 	In the section **geo**:
+    *	 **region**: same region as above  
+    * 	**default**: update this with the name of Location Map services listed in the output of setup_environment.yaml CloudFormation template  
+  *	 In the section **API**:  
+    * 	endpoint: update this with API gatweway url listed in the output of apigateway_ template.yaml  
 
 You are now ready to run the web app with:
 ```
