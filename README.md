@@ -359,8 +359,8 @@ This is the list of information required:
 * 	In the section **geo**:
     *	 **region**: same region as above  
     * 	**default**: update this with the name of Location Map services listed in the output of setup_environment.yaml CloudFormation template  
-*	 In the section **API**:  
-    * 	endpoint: update this with API gatweway url listed in the output of apigateway_ template.yaml  
+*	 In the section **API**:
+    * 	**endpoint**: update this with API gatweway url listed in the output of apigateway_ template.yaml  
 
 You are now ready to run the web app with:
 ```
