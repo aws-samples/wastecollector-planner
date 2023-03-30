@@ -88,33 +88,23 @@ This will open a new window in your browser similar to Figure 4:
 You can now click on **Create stack**, in the next form select **Upload a template file** and use the **Choose file button** to upload the previously downloaded template.
 Then click **Next** and fill **Stack name** field with: **LocationServiceDemo** and leave all other Parameters to their default values.
 Select  **Next** and **Next** again and in the last screen acknowledge that CloudFormation is going to create AWS Identity and Access Management (IAM) resources as shown in Figure 5 and then click **Submit**.
-#####################################################  
-ADD IMAGE HERE
-##################################################### 
-**Figure 5 –CloudFormation acknowledge IAM resource creation**  
+![Figure 5 – CloudFormation acknowledge IAM resource creation](./images/image-5-CloudFormation-acknowledge-IAM-resource-creation.png)
+**Figure 5 – CloudFormation acknowledge IAM resource creation**  
 
 Wait until the CloudFormation stack creation process completes. At the end you will see something similar to Figure 6.
-#####################################################  
-ADD IMAGE HERE
-##################################################### 
+![Figure 6 – AWS CloudFormation check completion](./images/image-6-AWS-CloudFormation-check-completion.png)
 **Figure 6 – AWS CloudFormation check completion**  
 
 After the stack creates all the resources you can access SageMaker Studio using this [link](https://us-east-1.console.aws.amazon.com/sagemaker/home?region=us-east-1#/studio) and in the console you see your resources similar to Figure 7.  
-#####################################################  
-ADD IMAGE HERE
-##################################################### 
+![Figure 7 – Amazon SageMaker Studio console](./images/image-7-Amazon-SageMaker-Studio-console.png)
 **Figure 7 – Amazon SageMaker Studio console**  
 
 Here you can click on **MyDomain** and this is going to open a new window listing the available users in the domain. In order to open SageMaker Studio environment, select **Launch** and then **Studio** as shown in Figure 8.  
-#####################################################  
-ADD IMAGE HERE
-##################################################### 
+![Figure 8 – Amazon SageMaker Studio open user console](./images/image-8-Amazon-SageMaker-Studio-open-user-console.png)
 **Figure 8 – Amazon SageMaker Studio open user console**  
 
 Now that you have opened SageMaker Studio you will use the included feature to clone the repository https://github.com/aws-samples/wastecollector-planner by clicking on the git icon on the left, selecting **Clone Repository** on the left panel, typing the repository name in the combo box and selecting the hint provided by the combo “Clone https://github.com/aws-samples/wastecollector-planner" and then pressing the button **Clone** as shown in Figure 9.
-#####################################################  
-ADD IMAGE HERE
-##################################################### 
+![Figure 9 – Amazon SageMaker Studio cloning github repository](./images/image-9-Amazon-SageMaker-Studio-cloning-github-repository.png)
 **Figure 9 – Amazon SageMaker Studio cloning github repository**  
 
 Browse the SageMaker Notebook local folders using the panel on the left and open the notebook used for experimenting with Amazon Location. 
