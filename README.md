@@ -82,9 +82,7 @@ In this post you will use CloudFormation to build a SageMaker Studio environment
 The CloudFormation template used in this step is named setup_environment.yaml and can be downloaded from [here](https://raw.githubusercontent.com/aws-samples/wastecollector-planner/main/CFTemplate/setup_environment.yaml).
 In order to deploy CloudFormation template you can use the AWS Console using this [link](https://us-east-1.console.aws.amazon.com/cloudformation).  
 This will open a new window in your browser similar to Figure 4:  
-#####################################################  
-ADD IMAGE HERE
-#####################################################    
+![Figure 4 – AWS CloudFormation Console](./images/image-4-Aws-cloud-formation-console)   
 **Figure 4 – AWS CloudFormation Console**  
 
 You can now click on **Create stack**, in the next form select **Upload a template file** and use the **Choose file button** to upload the previously downloaded template.
