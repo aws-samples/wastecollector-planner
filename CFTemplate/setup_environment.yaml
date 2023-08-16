@@ -431,7 +431,7 @@ Resources:
   AmazonSageMakerServiceCatalogProductsLaunchRole:
     Type: "AWS::IAM::Role"
     Properties:
-      RoleName: !Join [ ".", [ "AmazonSageMakerServiceCatalogProductsLaunchRole", !Ref AWS::StackName ]]
+      RoleName: !Join [ ".", [ "SMSCProductsLaunchRole", !Ref AWS::StackName ]]
       Description: "SageMaker role created from the SageMaker AWS Management Console. This role has the permissions required to launch the Amazon SageMaker portfolio of products from AWS ServiceCatalog."
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -443,7 +443,7 @@ Resources:
       Path: "/service-role/"
       MaxSessionDuration: 3600
       Policies: 
-        - PolicyName: !Join [ ".", [ "AmazonSageMakerAdmin-ServiceCatalogProductsServiceRolePolicy", !Ref AWS::StackName ]]
+        - PolicyName: !Join [ ".", [ "SMASCProductsServiceRolePolicy", !Ref AWS::StackName ]]
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -480,7 +480,7 @@ Resources:
                 Condition:
                   ArnLikeIfExists:
                     'cloudformation:RoleArn':
-                      - 'arn:aws:sts::*:assumed-role/AmazonSageMakerServiceCatalog*'
+                      - 'arn:aws:sts::*:assumed-role/SMSC*'
               - Effect: Allow
                 Action:
                   - 'cloudformation:DescribeStackEvents'
@@ -619,7 +619,7 @@ Resources:
                 Action:
                   - 'iam:PassRole'
                 Resource:
-                  - 'arn:aws:iam::*:role/service-role/AmazonSageMakerServiceCatalog*'
+                  - 'arn:aws:iam::*:role/service-role/SMSC*'
               - Effect: Allow
                 Action:
                   - 'lambda:AddPermission'
@@ -694,7 +694,7 @@ Resources:
   AmazonSageMakerServiceCatalogProductsUseRole:
     Type: "AWS::IAM::Role"
     Properties:
-      RoleName: !Join [ ".", [ "AmazonSageMakerServiceCatalogProductsUseRole", !Ref AWS::StackName ]]
+      RoleName: !Join [ ".", [ "SMSCProductsUseRole", !Ref AWS::StackName ]]
       Description: "SageMaker role created from the SageMaker AWS Management Console. This role has the permissions required to use the Amazon SageMaker portfolio of products from AWS ServiceCatalog."
       Path: "/service-role/"
       MaxSessionDuration: 3600 
@@ -716,7 +716,7 @@ Resources:
                 - "firehose.amazonaws.com"
             Action: "sts:AssumeRole"
       Policies: 
-        - PolicyName: !Join [ ".", [ "AmazonSageMakerServiceCatalogProductsUseRole-1", !Ref AWS::StackName ]]
+        - PolicyName: !Join [ ".", [ "SMSCProductsUseRole-1", !Ref AWS::StackName ]]
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -837,7 +837,7 @@ Resources:
                 Action:
                   - iam:PassRole
                 Resource:
-                  - arn:aws:iam::*:role/service-role/AmazonSageMakerServiceCatalogProductsUse*
+                  - arn:aws:iam::*:role/service-role/SMSCProductsUse*
                 Effect: Allow
               - 
                 Effect: Allow
